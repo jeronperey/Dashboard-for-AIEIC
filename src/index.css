@@ -108,6 +108,41 @@ h1, h2, p {
   overflow: hidden;
 }
 
+/* Sidebar toggle (hamburger) */
+.sidebar-toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  padding: 8px 7px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 10px;
+  transition: background 0.12s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-light);
+}
+
+.sidebar-toggle-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--color-text-muted);
+  border-radius: 2px;
+  transition: background 0.12s;
+}
+
+.sidebar-toggle:hover .sidebar-toggle-bar {
+  background: var(--color-text-dark);
+}
+
 /* Left Panel */
 .left-panel {
   width: 292px;
@@ -115,9 +150,16 @@ h1, h2, p {
   background: var(--bg-white);
   border-right: 1px solid var(--color-border);
   padding: 20px 16px;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: width 0.22s ease, padding 0.22s ease, border-color 0.22s ease;
+}
+
+.left-panel--collapsed {
+  width: 0;
+  padding: 0;
+  border-color: transparent;
 }
 
 .panel-section-label {
@@ -129,6 +171,7 @@ h1, h2, p {
   margin-bottom: 10px;
   padding-left: 4px;
 }
+
 
 .uploaded-file {
   background: var(--bg-green-light);
@@ -287,6 +330,13 @@ h1, h2, p {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.content-actions-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 4px;
 }
 
 .btn-approve {
@@ -637,6 +687,383 @@ h1, h2, p {
   padding: 12px 10px;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-dark);
+}
+
+/* ── Additional colors ── */
+:root {
+  --color-curriculum: #7c3de0;
+  --bg-purple-light: #f2ecfd;
+}
+
+/* ── Clickable student cards & rows ── */
+.student-card-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.12s, transform 0.1s;
+}
+.student-card-clickable:hover {
+  box-shadow: 0 2px 10px rgba(26, 26, 51, 0.12);
+  transform: translateY(-1px);
+}
+
+.submission-row-clickable {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.submission-row-clickable:hover td {
+  background: var(--bg-question);
+}
+
+/* ── Student Detail Modal ── */
+.modal-wide {
+  width: 860px;
+  max-width: 95vw;
+}
+
+.agent-snap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 18px 0 20px;
+}
+
+.agent-snap-card {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-snap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.agent-snap-name {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agent-snap-flag {
+  font-size: 12px;
+}
+
+.agent-snap-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.agent-snap-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.agent-snap-metric {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.agent-snap-detail {
+  font-size: 11px;
+  color: var(--color-text-dark);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.agent-snap-reasoning {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  background: var(--bg-page);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.agent-snap-reasoning-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 3px;
+}
+
+.detail-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin-bottom: 12px;
+}
+
+.no-interventions {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: 12px 0;
+}
+
+/* ── Intervention Timeline ── */
+.intervention-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 4px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+}
+
+.timeline-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 12px;
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timeline-line {
+  width: 2px;
+  flex: 1;
+  background: var(--color-border);
+  margin: 3px 0;
+  min-height: 12px;
+}
+
+.timeline-content {
+  padding-bottom: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.timeline-time {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.timeline-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.timeline-desc {
+  font-size: 12px;
+  color: var(--color-text-dark);
+  line-height: 1.5;
+}
+
+/* ── Agent Badge ── */
+.agent-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Agent Collaboration Tab ── */
+.agent-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.agent-status-card {
+  border: 1px solid var(--color-border);
+  border-top-width: 3px;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-status-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-status-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-status-active-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.agent-status-role {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.agent-status-metrics {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.agent-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.agent-metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  line-height: 1;
+}
+
+.agent-metric-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.agent-status-focus {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* ── Collaboration Feed ── */
+.collab-feed {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.feed-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  align-items: flex-start;
+}
+
+.feed-item:last-child {
+  border-bottom: none;
+}
+
+.feed-item--critical {
+  background: #fff8f5;
+}
+
+.feed-item--warning {
+  background: #fffdf5;
+}
+
+.feed-item--info {
+  background: var(--bg-white);
+}
+
+.feed-item-left {
+  flex-shrink: 0;
+  width: 60px;
+}
+
+.feed-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.feed-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.feed-item-agents {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.feed-arrow {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.feed-student {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.feed-student-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.feed-action-required {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-needs-help);
+  background: #fdeaea;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.feed-desc {
+  font-size: 12px;
+  color: var(--color-text-dark);
+  line-height: 1.5;
+}
+
+.feed-detail {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  line-height: 1.5;
 }
 
 /* ── Modals ── */

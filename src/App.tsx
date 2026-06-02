@@ -4,29 +4,35 @@ import MaterialPreview from './tabs/MaterialPreview';
 import StudentActivity from './tabs/StudentActivity';
 import GradedSubmissions from './tabs/GradedSubmissions';
 import Statistics from './tabs/Statistics';
+import AgentCollaboration from './tabs/AgentCollaboration';
 import UploadMaterialModal from './components/UploadMaterialModal';
 import UploadAgentModal from './components/UploadAgentModal';
+import StudentDetailModal from './components/StudentDetailModal';
 
-type Tab = 'material' | 'activity' | 'grades' | 'stats';
+type Tab = 'material' | 'activity' | 'grades' | 'stats' | 'agents';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'material', label: 'Material Preview' },
   { id: 'activity', label: 'Student Activity' },
   { id: 'grades', label: 'Graded Submissions' },
   { id: 'stats', label: 'Statistics' },
+  { id: 'agents', label: 'AI Overview' },
 ];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('material');
   const [showUploadMaterial, setShowUploadMaterial] = useState(false);
   const [showUploadAgent, setShowUploadAgent] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   function renderContent() {
     switch (activeTab) {
       case 'material': return <MaterialPreview />;
-      case 'activity': return <StudentActivity />;
-      case 'grades': return <GradedSubmissions />;
+      case 'activity': return <StudentActivity onSelectStudent={setSelectedStudent} />;
+      case 'grades': return <GradedSubmissions onSelectStudent={setSelectedStudent} />;
       case 'stats': return <Statistics />;
+      case 'agents': return <AgentCollaboration />;
     }
   }
 
@@ -35,6 +41,11 @@ export default function App() {
     <div className="dashboard">
       {/* Header */}
       <header className="header">
+        <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} title="Toggle sidebar">
+          <span className="sidebar-toggle-bar" />
+          <span className="sidebar-toggle-bar" />
+          <span className="sidebar-toggle-bar" />
+        </button>
         <div className="header-left">
           <h1>Instructor Panel</h1>
           <p>CSC 101 — Lab 4: Linked Lists</p>
@@ -45,7 +56,7 @@ export default function App() {
       {/* Body */}
       <div className="body">
         {/* Left Panel */}
-        <aside className="left-panel">
+        <aside className={`left-panel${sidebarOpen ? '' : ' left-panel--collapsed'}`}>
           <div className="panel-section-label">Lab Material</div>
 
           <div className="uploaded-file">
@@ -54,17 +65,7 @@ export default function App() {
           </div>
 
           <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadMaterial(true)}>Upload Material</button>
-          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadAgent(true)}>Upload Agent Instructions</button>
-
-          <hr className="panel-divider" />
-
-          <div className="panel-section-label">AI Actions</div>
-<button className="panel-btn panel-btn-tinted">Generate Lab Tasks</button>
-          <button className="panel-btn panel-btn-tinted">Generate Quiz</button>
-
-          <hr className="panel-divider" />
-
-          <button className="panel-btn panel-btn-primary">Grade Submissions</button>
+          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadAgent(true)}>Customize AI Behavior</button>
         </aside>
 
         {/* Main */}
@@ -92,6 +93,13 @@ export default function App() {
 
     {showUploadMaterial && <UploadMaterialModal onClose={() => setShowUploadMaterial(false)} />}
     {showUploadAgent && <UploadAgentModal onClose={() => setShowUploadAgent(false)} />}
+    {selectedStudent && (
+      <StudentDetailModal
+        studentName={selectedStudent}
+        onClose={() => setSelectedStudent(null)}
+        onViewSubmission={() => { setSelectedStudent(null); setActiveTab('grades'); }}
+      />
+    )}
     </>
   );
 }

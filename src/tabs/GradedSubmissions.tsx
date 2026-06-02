@@ -24,7 +24,7 @@ function statusBadge(status: SubmissionStatus) {
   return <span className="badge badge-review">Needs Review</span>;
 }
 
-export default function GradedSubmissions() {
+export default function GradedSubmissions({ onSelectStudent }: { onSelectStudent: (name: string) => void }) {
   return (
     <div className="content-card">
       <div className="content-header">
@@ -34,6 +34,7 @@ export default function GradedSubmissions() {
         </div>
         <div className="content-actions">
           <button className="btn-outline">Download All (CSV)</button>
+          <button className="btn-primary">Grade Submissions</button>
         </div>
       </div>
       <hr className="content-divider" />
@@ -50,7 +51,7 @@ export default function GradedSubmissions() {
         </thead>
         <tbody>
           {submissions.map(row => (
-            <tr key={row.student}>
+            <tr key={row.student} className="submission-row-clickable" onClick={() => onSelectStudent(row.student)}>
               <td style={{ fontWeight: 500 }}>{row.student}</td>
               <td style={{ fontWeight: 600 }}>{row.score}</td>
               <td>{statusBadge(row.status)}</td>

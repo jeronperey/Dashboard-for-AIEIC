@@ -7,6 +7,10 @@ interface Student {
   status: StudentStatus;
 }
 
+interface Props {
+  onSelectStudent: (name: string) => void;
+}
+
 const students: Student[] = [
   { name: 'Carlos R', prompts: 31, detail: 'Last: "Just give me the full insert function" · Top topic: Everything', status: 'needs-help' },
   { name: 'Ethan L', prompts: 22, detail: 'Last: "I still don\'t get pointer swap" · Reached hint level 3, still stuck', status: 'needs-help' },
@@ -28,7 +32,7 @@ const statusMeta: Record<StudentStatus, { label: string; labelClass: string; acc
 
 const groups: StudentStatus[] = ['needs-help', 'flagged', 'on-track', 'low'];
 
-export default function StudentActivity() {
+export default function StudentActivity({ onSelectStudent }: Props) {
   return (
     <div className="content-card">
       <div className="content-header">
@@ -50,7 +54,11 @@ export default function StudentActivity() {
             </div>
             <div className="students-grid">
               {group.map(student => (
-                <div key={student.name} className="student-card">
+                <div
+                  key={student.name}
+                  className="student-card student-card-clickable"
+                  onClick={() => onSelectStudent(student.name)}
+                >
                   <div className={`student-card-accent ${meta.accentClass}`} />
                   <div className="student-card-body">
                     <div className="student-name">{student.name}</div>
