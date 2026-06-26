@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './index.css';
 import MaterialPreview from './tabs/MaterialPreview';
+import LabQuizPreview from './tabs/LabQuizPreview';
 import StudentActivity from './tabs/StudentActivity';
 import GradedSubmissions from './tabs/GradedSubmissions';
 import Statistics from './tabs/Statistics';
@@ -8,11 +9,13 @@ import AgentCollaboration from './tabs/AgentCollaboration';
 import UploadMaterialModal from './components/UploadMaterialModal';
 import UploadAgentModal from './components/UploadAgentModal';
 import StudentDetailModal from './components/StudentDetailModal';
+import LoginPage from './components/LoginPage';
 
-type Tab = 'material' | 'activity' | 'grades' | 'stats' | 'agents';
+type Tab = 'tasks' | 'quiz' | 'activity' | 'grades' | 'stats' | 'agents';
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: 'material', label: 'Material Preview' },
+  { id: 'tasks', label: 'Lab Tasks Preview' },
+  { id: 'quiz', label: 'Lab Quiz Preview' },
   { id: 'activity', label: 'Student Activity' },
   { id: 'grades', label: 'Graded Submissions' },
   { id: 'stats', label: 'Statistics' },
@@ -20,7 +23,8 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('material');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [showUploadMaterial, setShowUploadMaterial] = useState(false);
   const [showUploadAgent, setShowUploadAgent] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
@@ -28,12 +32,17 @@ export default function App() {
 
   function renderContent() {
     switch (activeTab) {
-      case 'material': return <MaterialPreview />;
+      case 'tasks': return <MaterialPreview />;
+      case 'quiz': return <LabQuizPreview />;
       case 'activity': return <StudentActivity onSelectStudent={setSelectedStudent} />;
       case 'grades': return <GradedSubmissions onSelectStudent={setSelectedStudent} />;
       case 'stats': return <Statistics />;
       case 'agents': return <AgentCollaboration />;
     }
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
   }
 
   return (
@@ -65,7 +74,7 @@ export default function App() {
           </div>
 
           <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadMaterial(true)}>Upload Material</button>
-          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadAgent(true)}>Customize AI Behavior</button>
+          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadAgent(true)}>Customize Tutor Behavior</button>
         </aside>
 
         {/* Main */}
