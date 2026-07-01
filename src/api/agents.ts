@@ -3,6 +3,8 @@
 //
 // Set VITE_ORCHESTRATOR_URL=http://localhost:8000 in .env (copy from .env.example).
 
+import { authHeaders, clearToken } from '../lib/auth';
+
 const BASE = import.meta.env.VITE_ORCHESTRATOR_URL ?? '';
 const LAB_ID = import.meta.env.VITE_LAB_ID ?? 'lab4';
 
@@ -79,7 +81,13 @@ export interface StudentIntegrityData {
 async function get<T>(path: string): Promise<T | null> {
   if (!BASE) return null;
   try {
-    const res = await fetch(`${BASE}${path}`);
+    const res = await fetch(`${BASE}${path}`, {
+      headers: authHeaders(),
+    });
+    if (res.status === 401) {
+      clearToken();
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json() as T;
   } catch {
@@ -129,7 +137,14 @@ export async function fetchSubmission(submissionId: string) {
 export async function triggerGradeBatch(): Promise<{ submissions_queued: number } | null> {
   if (!BASE) return null;
   try {
-    const res = await fetch(`${BASE}/orchestrator/instructor/grade-batch?lab_id=${LAB_ID}`, { method: 'POST' });
+    const res = await fetch(`${BASE}/orchestrator/instructor/grade-batch?lab_id=${LAB_ID}`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    if (res.status === 401) {
+      clearToken();
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch {

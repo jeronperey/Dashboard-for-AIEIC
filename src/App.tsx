@@ -10,6 +10,7 @@ import UploadMaterialModal from './components/UploadMaterialModal';
 import UploadAgentModal from './components/UploadAgentModal';
 import StudentDetailModal from './components/StudentDetailModal';
 import LoginPage from './components/LoginPage';
+import { useSession } from './lib/useSession';
 
 type Tab = 'tasks' | 'quiz' | 'activity' | 'grades' | 'stats' | 'agents';
 
@@ -23,7 +24,7 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, authChecked, signInError, dismissError, refresh, signOut } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>('tasks');
   const [showUploadMaterial, setShowUploadMaterial] = useState(false);
   const [showUploadAgent, setShowUploadAgent] = useState(false);
@@ -41,8 +42,18 @@ export default function App() {
     }
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  if (!authChecked) {
+    return <div className="login-page"><div className="login-card">Loading…</div></div>;
+  }
+
+  if (!user) {
+    return (
+      <LoginPage
+        onLogin={refresh}
+        error={signInError}
+        onDismissError={dismissError}
+      />
+    );
   }
 
   return (
@@ -60,6 +71,10 @@ export default function App() {
           <p>CSC 101 — Lab 4: Linked Lists</p>
         </div>
         <div className="status-pill">● Lab in session</div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, opacity: 0.7 }}>{user.email}</span>
+          <button onClick={signOut} style={{ fontSize: 12 }}>Sign out</button>
+        </div>
       </header>
 
       {/* Body */}

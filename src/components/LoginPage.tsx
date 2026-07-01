@@ -1,18 +1,20 @@
-import { useState } from 'react';
+const BACKEND = import.meta.env.VITE_BACKEND_URL ?? '';
 
 interface Props {
   onLogin: () => void;
+  error?: string | null;
+  onDismissError?: () => void;
 }
 
-export default function LoginPage({ onLogin }: Props) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    onLogin();
+export default function LoginPage({ onLogin, error, onDismissError }: Props) {
+  function signIn() {
+    if (!BACKEND) {
+      onLogin();
+      return;
+    }
+    onDismissError?.();
+    const next = `${window.location.origin}/auth/callback`;
+    window.location.href = `${BACKEND}/api/v1/auth/microsoft/login?next=${encodeURIComponent(next)}`;
   }
 
   return (
@@ -26,77 +28,22 @@ export default function LoginPage({ onLogin }: Props) {
           </div>
         </div>
 
-        <div className="modal-tab-switch" style={{ marginBottom: 24 }}>
-          <button
-            className={`modal-tab${mode === 'signin' ? ' modal-tab-active' : ''}`}
-            onClick={() => setMode('signin')}
-          >
-            Sign In
-          </button>
-          <button
-            className={`modal-tab${mode === 'signup' ? ' modal-tab-active' : ''}`}
-            onClick={() => setMode('signup')}
-          >
-            Sign Up
-          </button>
+        {error && (
+          <div className="login-error" role="alert">
+            <span>{error}</span>
+            <button
+              className="login-error-close"
+              onClick={onDismissError}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <div className="calPoly-sso">
+          <button onClick={signIn}>Sign in with Cal Poly Email</button>
         </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          {mode === 'signup' && (
-            <div className="login-field">
-              <label className="login-label">Full Name</label>
-              <input
-                className="login-input"
-                type="text"
-                placeholder="e.g. Prof. Kurfess"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-              />
-            </div>
-          )}
-
-          <div className="login-field">
-            <label className="login-label">Email</label>
-            <input
-              className="login-input"
-              type="email"
-              placeholder="instructor@university.edu"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="login-field">
-            <label className="login-label">Password</label>
-            <input
-              className="login-input"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-primary login-submit">
-            {mode === 'signin' ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
-
-        {mode === 'signin' && (
-          <p className="login-footer">
-            Don't have an account?{' '}
-            <button className="login-link" onClick={() => setMode('signup')}>Sign up</button>
-          </p>
-        )}
-        {mode === 'signup' && (
-          <p className="login-footer">
-            Already have an account?{' '}
-            <button className="login-link" onClick={() => setMode('signin')}>Sign in</button>
-          </p>
-        )}
       </div>
     </div>
   );
