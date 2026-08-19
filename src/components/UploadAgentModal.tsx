@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { uploadAgentInstructions } from '../api/agents';
 import Modal from './Modal';
 
 interface Props {
@@ -12,6 +13,8 @@ export default function UploadAgentModal({ onClose }: Props) {
   const [instructions, setInstructions] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFiles(files: FileList | null) {
@@ -25,6 +28,36 @@ export default function UploadAgentModal({ onClose }: Props) {
   }
 
   const canSave = mode === 'write' ? instructions.trim().length > 0 : file !== null;
+
+  async function readInstructionFile(selected: File) {
+    const name = selected.name.toLowerCase();
+    if (!name.endsWith('.txt') && !name.endsWith('.md')) {
+      throw new Error('Only TXT or Markdown instruction files are supported in this version.');
+    }
+    return selected.text();
+  }
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const text = mode === 'write'
+        ? instructions.trim()
+        : await readInstructionFile(file as File);
+      const result = await uploadAgentInstructions(text);
+      if (!result) {
+        setError('Could not save instructions. Generate a lab draft first, then try again.');
+        setSaving(false);
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('curriculum:changed'));
+      onClose();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : 'Could not read the instruction file.');
+      setSaving(false);
+    }
+  }
 
   return (
     <Modal title="Upload Agent Instructions" onClose={onClose} width={520}>
@@ -67,7 +100,7 @@ export default function UploadAgentModal({ onClose }: Props) {
             <input
               ref={inputRef}
               type="file"
-              accept=".txt,.md,.pdf"
+              accept=".txt,.md"
               style={{ display: 'none' }}
               onChange={e => handleFiles(e.target.files)}
             />
@@ -81,7 +114,7 @@ export default function UploadAgentModal({ onClose }: Props) {
                 <div className="dropzone-icon">⬆</div>
                 <div className="dropzone-cta">Drag &amp; drop your instructions file</div>
                 <div className="dropzone-meta">or click to browse</div>
-                <div className="dropzone-hint">TXT, MD, PDF · Max 5 MB</div>
+                <div className="dropzone-hint">TXT, MD · Max 5 MB</div>
               </>
             )}
           </div>
@@ -96,14 +129,16 @@ export default function UploadAgentModal({ onClose }: Props) {
         </>
       )}
 
+      {error && <div className="error-state">{error}</div>}
+
       <div className="modal-footer">
         <button className="btn-outline" onClick={onClose}>Cancel</button>
         <button
           className="btn-primary"
-          disabled={!canSave}
-          onClick={onClose}
+          disabled={!canSave || saving}
+          onClick={handleSave}
         >
-          Save Instructions
+          {saving ? 'Saving...' : 'Save Instructions'}
         </button>
       </div>
     </Modal>

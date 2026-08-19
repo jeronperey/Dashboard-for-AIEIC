@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './index.css';
 import MaterialPreview from './tabs/MaterialPreview';
 import LabQuizPreview from './tabs/LabQuizPreview';
@@ -10,6 +10,7 @@ import UploadMaterialModal from './components/UploadMaterialModal';
 import UploadAgentModal from './components/UploadAgentModal';
 import StudentDetailModal from './components/StudentDetailModal';
 import LoginPage from './components/LoginPage';
+import { getActiveLabId } from './api/agents';
 
 type Tab = 'tasks' | 'quiz' | 'activity' | 'grades' | 'stats' | 'agents';
 
@@ -29,6 +30,15 @@ export default function App() {
   const [showUploadAgent, setShowUploadAgent] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeLabId, setActiveLabId] = useState(getActiveLabId());
+
+  useEffect(() => {
+    function refreshActiveLab() {
+      setActiveLabId(getActiveLabId());
+    }
+    window.addEventListener('curriculum:changed', refreshActiveLab);
+    return () => window.removeEventListener('curriculum:changed', refreshActiveLab);
+  }, []);
 
   function renderContent() {
     switch (activeTab) {
@@ -66,14 +76,14 @@ export default function App() {
       <div className="body">
         {/* Left Panel */}
         <aside className={`left-panel${sidebarOpen ? '' : ' left-panel--collapsed'}`}>
-          <div className="panel-section-label">Lab Material</div>
+          <div className="panel-section-label">Curriculum Designer</div>
 
           <div className="uploaded-file">
-            <div className="file-name">Lab4_specification.pdf</div>
-            <div className="file-meta">Uploaded · 2.3 MB</div>
+            <div className="file-name">{activeLabId}</div>
+            <div className="file-meta">Active draft</div>
           </div>
 
-          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadMaterial(true)}>Upload Material</button>
+          <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadMaterial(true)}>Generate Material</button>
           <button className="panel-btn panel-btn-ghost" onClick={() => setShowUploadAgent(true)}>Customize Tutor Behavior</button>
         </aside>
 
