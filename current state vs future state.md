@@ -221,3 +221,20 @@ Both are genuinely free with published per-minute/per-day rate limits rather tha
 5. Wire the Instructor UI's three unwired tabs (Student Activity, Graded Submissions, Statistics) directly to Assessment Agent / the database — bypassing the Orchestrator entirely, per the confirmed design.
 6. Retire `rubric.md`; make `LabMaterial.rubric` the canonical entity and wire `criteria[].weight` into `report_evaluator.py`'s actual scoring (see 2.3).
 7. Send advisor a short heads-up that `AgentCollaboration` is deferred/re-scoped rather than built as originally designed (see 3.4).
+
+## 6. Proposed Roadmap
+
+High level, mapped against the 15-week timeline from the proposal — this just sequences the section 5 action items, not a detailed sprint plan.
+
+|Weeks|Phase|Covers|
+|---|---|---|
+|1–2|Audit & decide|Done — this document. Decisions on ADFEL/rubric/AgentCollaboration are locked in, no longer open.|
+|3–5|Infrastructure stand-up|MongoDB Atlas provisioned and agents pointed at it; Groq/Gemini swapped in for Azure OpenAI/Anthropic; Curriculum Designer + Assessment Agent deployed to Render. Matches the proposal's "improve Vercel deployment + initial UI-to-agent integration" milestone.|
+|6|(unchanged)|Background research / related-work section — not affected by this plan.|
+|7–9|Core integration|Instructor UI wired directly to Curriculum Designer and Assessment Agent; Student Activity/Graded Submissions/Statistics tabs connected to the shared DB; rubric consolidation (`rubric.md` retired, `LabMaterial.rubric` wired into `report_evaluator.py`) done here since it blocks real grading data.|
+|10|Documentation pass|Update proposal's intro/design/implementation docs to reflect the actual architecture (no orchestrator, free-tier stack) instead of the original Cosmos/Azure assumptions.|
+|11|Usability testing|Unchanged from proposal — now testing against a fully wired instructor workflow instead of a partial one.|
+|12–13|Refinement + demo prep|Fix issues found in testing; cold-start mitigation for Render if it's a problem live; prepare Expo demo.|
+|14–15|Wrap-up|Ethics analysis, limitations/future-work section — this is where `AgentCollaboration`'s deferred re-scope (3.4) belongs in the report, plus any leftover ADFEL/Oliver thread.|
+
+The main shift from the original proposal timeline is that weeks 3–5 now carry real infrastructure decisions (DB, hosting, AI provider) up front, so weeks 7–9 are pure integration work rather than integration-plus-discovery.
