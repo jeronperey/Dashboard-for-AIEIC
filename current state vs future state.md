@@ -1,240 +1,172 @@
-# AIEIC Instructor Workflow — Integration Plan
-### Current State vs. Target State, and Free-Tier Design Decisions
+# AIEIC Implementation Audit
 
-Prepared by Jeron Perey — CSC 4460 Senior Project
+What's actually live, what's a local stub, and what got deleted last week — replacing the previous audit, which was out of date on most of these points.
 
----
+**Repo:** CSUAIEI · **Branch audited:** `main` @ `b47d3ff` · **As of:** 2026-09-21
 
-## 1. Purpose
-
-This document lays out where the AIEIC instructor workflow stands today versus where it needs to get to, and the concrete infrastructure decisions (hosting, database, AI provider) needed to build it entirely on free tiers. It's meant to be something I can hand to my advisor and teammates as a shared reference, not a final report.
-
-**One-line summary of the current state:** only the Instructor UI is deployed (on Vercel), and it isn't wired to any backend or agent — everything downstream of the frontend exists as unconnected code.
+**Legend:** ● real data / verified · ◐ deployable, unconfirmed live · ◑ stub / POC · ○ deleted / dead code · ◈ duplicated
 
 ---
 
-## 2. Current State
+## System topology, as it exists today
 
-### 2.1 What exists today
+The prior audit's central claim — "everything targets an Orchestrator and a Cosmos DB that don't exist" — no longer describes this repo. The Orchestrator was deleted. A second, unrelated backend was built and partly wired up with real persistence. Nothing was reconciled.
 
-| Component | Status |
+```mermaid
+flowchart TB
+    subgraph UI["Instructor UI — deployed shell, no live wiring"]
+        IUI["Instructor Dashboard<br/>React + Vite → Vercel"]
+    end
+
+    subgraph Gone["Deleted 2026-09-14, never replaced"]
+        ORCH["Orchestrator API<br/>(orchestration-agent-AIEIC-main)"]
+        OLDIG["Integrity Guardian v1<br/>(integrity_agent-main, Cosmos DB)"]
+    end
+
+    subgraph Isolated["Written, not deployed, not connected to anything"]
+        CD["Curriculum Designer<br/>FastAPI + LangGraph<br/>Azure OpenAI · in-memory store"]
+        AA["Assessment Agent<br/>FastAPI<br/>Anthropic Claude · local JSON POC"]
+    end
+
+    subgraph Dup["Standalone, duplicates part of the system below"]
+        PASTANDALONE["Participant Agent (standalone)<br/>Azure OpenAI · Cosmos DB + Redis"]
+    end
+
+    subgraph Real["Student-UI Agentic System — the one real backend"]
+        SUI["FastAPI server + Chainlit client<br/>CAS SSO auth"]
+        LC["Lab Companion"]
+        GD["Guardian<br/>(chat-turn integrity gate)"]
+        PA["Participant<br/>(interaction log)"]
+        SQ[("SQLite per course<br/>real rows present")]
+        SUI --> LC --> GD --> PA --> SQ
+    end
+
+    IUI -.->|"calls VITE_ORCHESTRATOR_URL<br/>(dead code, 0 call sites)"| ORCH
+    CD -.->|"targets (stubbed)"| COSMOS1[("Cosmos DB<br/>NotImplementedError")]
+    AA -.->|"local file only"| JSON[("assessment_results.json")]
+    PASTANDALONE -.->|"targets"| COSMOS2[("Cosmos DB + Redis")]
+```
+
+> **The single most important change since the last audit:** a new consolidated backend, `Student-UI_agentic_system-main/`, now does most of what the old audit described as five separate undeployed agents — and it's the only piece of the repo with verified real data (SQLite rows), named Azure infrastructure, and a real SSO flow. It has zero tests and isn't confirmed live, but it is unambiguously the most finished thing in the repo. Everything else — the Instructor UI, Curriculum Designer, Assessment Agent, and the standalone Participant Agent — is still disconnected from it and from each other.
+
+---
+
+## Instructor UI
+
+**`Instructor-Dashboard-for-AIEIC-main`** — ◐ deploy config present · ○ zero live backend calls
+
+| | |
 |---|---|
-| Instructor UI | **Deployed** on Vercel. Fully built (6 tabs), but only 2 of 6 tabs call any backend function, and even those calls have nothing live to hit. |
-| Curriculum Designer agent | Code exists (FastAPI + LangGraph). Not deployed anywhere. |
-| Assessment Agent | Code exists (FastAPI). Grading logic is a partial rework — LLM-based rubric grading is done, CS-specific code-grading is not yet removed. Not deployed anywhere. |
-| Participant agent | Code exists, written against Azure Cosmos DB. Not deployed anywhere. |
-| Integrity Guardian agent | Code exists, written against Azure Cosmos DB. Not deployed anywhere. |
-| Orchestrator agent | Code exists — a single hub meant to sit between the Instructor UI and everything else, and to drive the student-side flow. Not deployed anywhere. |
-| Database | Nothing hosted. All agent code targets Azure Cosmos DB, which is not free-tier. |
-| Second student-side implementation (ADFEL) | A separate, self-contained prototype with its own agents and its own SQLite storage — not connected to the microservices above. Status/ownership unconfirmed. |
+| **Deployment** | `vercel.json` present (SPA rewrite only). No way to confirm from the repo whether it's actually live. |
+| **Backend calls** | `src/api/agents.ts` is a real, typed client (`fetchDashboard`, `fetchActivityTab`, `fetchIntegrityAnalytics`, `triggerGradeBatch`) targeting `VITE_ORCHESTRATOR_URL` — but has **zero call sites** anywhere else in `src/`. It's orphaned, not aspirational: the Orchestrator it targets was built, matched its routes exactly, and was deleted a week before this audit. |
+| **What renders** | All six tabs — including Material Preview, previously the one tab claimed to work — now render 100% hardcoded arrays. No tab fetches anything, so none of them can fail; they just show fixed fake data every time. |
+| **Auth** | `LoginPage.tsx`'s submit handler calls `onLogin()` unconditionally — no credential check of any kind. |
 
-### 2.2 Current-state diagram
-
-Nothing below the Instructor UI is live. This diagram shows what's built vs. what's actually reachable:
-
-```mermaid
-flowchart LR
-  subgraph Deployed
-    IUI["Instructor UI\n(Vercel — live)"]
-  end
-
-  subgraph "Written, not deployed"
-    ORCH["Orchestrator agent"]
-    CD["Curriculum Designer agent"]
-    AA["Assessment Agent"]
-    PA["Participant agent"]
-    IG["Integrity Guardian agent"]
-    LC["Lab Companion agent"]
-  end
-
-  subgraph "No hosted database"
-    DB[("Azure Cosmos DB\n(code target, not hosted anywhere free)")]
-  end
-
-  IUI -.->|"calls exist in code,\nnothing to receive them"| ORCH
-  ORCH -.-> CD
-  ORCH -.-> AA
-  ORCH -.-> PA
-  ORCH -.-> LC
-  ORCH -.-> IG
-  CD -.-> DB
-  AA -.-> DB
-  PA -.-> DB
-  IG -.-> DB
-
-  style Deployed fill:#d4f4dd,stroke:#2d8a4e
-  style ORCH fill:#f4d4d4,stroke:#a03030
-```
-
-*(Dashed lines = code path exists but nothing is actually running/hosted, so it does nothing today.)*
-
-### 2.3 Resolved decisions
-
-Since nothing is deployed yet, these were decided outright rather than left as open questions for the team:
-
-- **ADFEL vs. the microservice agents — decided: build against the microservice stack (Participant, Integrity Guardian, Curriculum Designer, Assessment Agent), ADFEL is out of scope.** These aren't two versions of the same thing — they're three independent answers to "how does the instructor side connect" (ADFEL's own planned endpoints, the orchestrator + `aieic-shared` platform, and this plan's direct-agent design). Only the orchestrator stack is real infrastructure: it's built against a formal shared contract package (`aieic-shared`) and its router is explicitly mapped to the Figma dashboard tabs the Instructor UI is based on. ADFEL is a self-contained side prototype (own SQLite storage, own orchestrator) that was never meant to plug into this. One loose thread to flag to Oliver as an FYI, not a question: `participant-agent-AIEIC-main` was deleted and re-added within the same upload batch — worth a one-line "what happened here?" in case it's a sign of unfinished work rather than noise.
-- **Rubric model mismatch — decided: retire `rubric.md`, make Curriculum Designer's `LabMaterial.rubric` the single canonical rubric entity.** This turned out not to be a real design choice — Assessment Agent's own `rubric.md` format isn't even functional on its own terms today (`criteria[].points` is parsed but never used; every criterion is hardcoded to `max_score=10`), and the 60/30/10 code/report/manual split exists as two separate hardcoded copies that don't read from each other. Building it correctly from the start: Assessment Agent reads `LabMaterial.rubric` from the shared DB by `lab_id`, and `criteria[].weight` actually drives `report_evaluator.py`'s scoring instead of a hardcoded constant.
-- **`AgentCollaboration` tab — decided: defer, not in current scope.** It's a fully-designed live cross-agent activity feed (per-agent status cards + a timestamped event log), and its "live feed" framing is the one thing that would reopen the no-behavioral-coupling decision already made for this project (see 3.1) — even DB-poll-based, the framing implies a freshness expectation a pure data-dependency read doesn't naturally give. No existing data model supports it either way; building it means designing a new shared event-log entity, which is real scope, not a quick wire-up. Worth a short FYI to the advisor since it's a scope change, not just an implementation detail — see 3.4 for the re-scoped version if it's picked up later.
+Correction to prior audit: it was framed as "1 of 6 tabs works, 5 fail against a missing Orchestrator." The accurate framing is "0 of 6 tabs call anything; the Orchestrator they're built for existed and was deleted, not merely never built."
 
 ---
 
-## 3. Target State
+## Curriculum Designer
 
-### 3.1 Confirmed design
+**`curriculum-designer-AIEIC-main`** — ◑ in-memory only · ○ not deployed
 
-- Two independent systems — **student-side** (Lab Companion, Integrity Guardian, Participant agent) and **instructor-side** (Instructor UI, Curriculum Designer, Assessment Agent) — connected only through shared data, never through live calls between the two sides. This was a deliberate choice for safety isolation and so each side can be deployed/used independently.
-- The Instructor UI calls Curriculum Designer and Assessment Agent directly, and reads Participant/Integrity data straight from the shared database. No orchestrator sits in the middle of the instructor path.
-- My scope is the instructor-side system end to end: UI, Curriculum Designer integration, Assessment Agent integration, and the shared database.
+| | |
+|---|---|
+| **LLM** | `AzureLLMClient` wraps `langchain_openai.AzureChatOpenAI` (`services/llm.py`); a `MockLLMClient` exists for local dev. |
+| **Persistence** | `MemoryStore` (plain in-process dict) is the only working backend. `build_store("cosmos")` raises `NotImplementedError` — the README's own words: "CosmosStore lands in v0.2 — set STORAGE_BACKEND=memory for now." |
+| **Deployment** | `Dockerfile` present; README states target "Azure Container Apps" — a stated intent, not a confirmed live instance. |
+| **Tests** | None. `tests/` holds only an empty `__init__.py`; the README's own architecture table lists tests as "Stage D (not yet implemented)." |
 
-### 3.2 Target-state diagram
-
-```mermaid
-flowchart LR
-  subgraph "Student-Side System (not my scope, shares DB)"
-    LC[Lab Companion agent]
-    IGd[Integrity Guardian agent]
-    PA[Participant agent]
-    LC -- validate --> IGd
-    LC -- log interaction --> PA
-  end
-
-  subgraph "Instructor-Side System (my scope)"
-    IUI[Instructor UI]
-    CD[Curriculum Designer agent]
-    AA[Assessment Agent]
-    IUI -- "generate / approve / request-changes" --> CD
-    IUI -- "submit / review grades" --> AA
-  end
-
-  DB[(Shared free-tier database)]
-
-  PA -- "writes interaction log" --> DB
-  IGd -- "writes sessions + reports" --> DB
-  CD -- "writes curriculum material" --> DB
-  AA -- "writes assessment results" --> DB
-  IUI -. "reads participant + integrity data\n(data dependency only — no live call)" .-> DB
-```
-
-### 3.3 Per-component target diagrams
-
-**Instructor UI**
-```mermaid
-flowchart TD
-  App[App.tsx] --> Tabs
-  subgraph Tabs
-    MP[Material Preview] --> CDcall[Curriculum Designer API]
-    QP[Lab / Quiz Preview] --> CDcall
-    SA[Student Activity] --> DBread[Read from shared DB]
-    GS[Graded Submissions] --> AAcall[Assessment Agent API]
-    ST[Statistics] --> DBread
-  end
-  CDcall --> CD[(Curriculum Designer agent)]
-  AAcall --> AA[(Assessment Agent)]
-  DBread --> DB[(Shared DB)]
-```
-
-**Curriculum Designer agent**
-```mermaid
-flowchart LR
-  Input["generate request\n(objectives, instructions)"] --> Spec[spec generator]
-  Spec --> Quiz[quiz generator]
-  Quiz --> Rubric[rubric generator]
-  Rubric --> Review[self review]
-  Review -->|issues found| Quiz
-  Review --> Output[Lab Material]
-  Output --> DB[(Shared DB)]
-```
-
-**Assessment Agent**
-```mermaid
-flowchart TD
-  Req["assess request\n(student, assignment, submission)"] --> RE[LLM rubric grading\n discipline-agnostic]
-  Req -.->|"only if code submission present"| CG[Code grading\nCS-only, being phased down]
-  RE --> Score[Final score]
-  CG -.-> Score
-  Score --> Feedback[feedback generator]
-  Feedback --> Result[Assessment Result]
-  Result --> DB[(Shared DB)]
-  Result --> Queue[Manual review queue]
-```
-
-**Database (target entities)**
-```mermaid
-erDiagram
-  LAB ||--|| CURRICULUM_MATERIAL : has
-  LAB ||--o{ SUBMISSION : receives
-  SUBMISSION ||--|| ASSESSMENT_RESULT : produces
-  ASSESSMENT_RESULT ||--o| MANUAL_REVIEW : "queued for"
-  STUDENT ||--o{ PARTICIPANT_INTERACTION : "append-only log"
-  STUDENT ||--o{ INTEGRITY_SESSION : has
-  CURRICULUM_MATERIAL ||--|| RUBRIC : "single canonical entity"
-  SUBMISSION }o--|| RUBRIC : "graded against"
-```
-*(`RUBRIC` is now a single entity owned by Curriculum Designer and read by Assessment Agent — the old separate `rubric.md`/`AssignmentRubric` shape is retired, see 2.3.)*
-
-### 3.4 Future work — deferred, not part of current scope
-
-- **`AgentCollaboration` live activity feed**: if picked up later, re-scope from a real-time feed to a periodic or end-of-session summary populated from a new append-only `GENERATION_EVENT`-style log (agent, time, student, action, severity) that Curriculum Designer/Integrity/Participant/Assessment Agent all write to. This keeps it compatible with the no-behavioral-coupling design instead of reopening it. Not part of the current DB schema in 3.3.
+Unchanged from the prior audit's description — this is the one component where that audit still holds. It also references an `INTERFACE_CONTRACT.md` that no longer exists anywhere in the repo — it lived alongside the now-deleted Orchestrator.
 
 ---
 
-## 4. Design Decisions (all free tier)
+## Assessment Agent
 
-### 4.1 Frontend hosting — Vercel
-Already in place, no change needed. Free tier covers a static/SPA React deployment like this comfortably.
+**`assessment-agent`** — ◑ local JSON POC · ○ not deployed
 
-### 4.2 Backend agent hosting — Render
-Each FastAPI agent (Curriculum Designer, Assessment Agent) deploys as a free Render web service — no credit card required, no time-limited trial. The trade-off is that free services spin down after about 15 minutes of inactivity and take roughly 30–60 seconds to wake up on the next request. For a classroom demo that isn't hit constantly, that's an acceptable trade-off, and it's the only option among the mainstream platforms (Render, Railway, Fly.io) that stays free indefinitely rather than expiring after a trial period — Railway's free option is a time-limited credit, and Fly.io dropped its free tier entirely in 2024.
-
-**Fallback**: if the cold-start delay becomes a problem during a live demo, a lightweight uptime-ping job (e.g., a scheduled request every ~10 minutes during class hours) keeps the service warm without leaving free tier.
-
-### 4.3 Database — MongoDB Atlas (M0 free tier)
-This was already the recommendation from the codebase audit and still holds: every agent's code is already written against a document/partition-key model (Cosmos DB), so Atlas's free M0 cluster is close to a client-library swap rather than a schema redesign — one collection per entity, partition-key fields become ordinary indexed fields. Atlas's free tier has no time-based pause behavior, which matters for a live classroom session where usage is bursty.
-
-**Fallback**: Supabase (Postgres), if the team later wants real relational joins for the Statistics tab — accept a higher one-time schema-design cost and a weekly-inactivity pause in exchange.
-
-### 4.4 AI/LLM provider — Groq (primary), Gemini (for long-context tasks)
-The current code targets Azure OpenAI and the Anthropic SDK, neither of which has a real free tier at this usage pattern. Two free options fit the two different needs in this system:
-
-- **Groq**, for most agent calls (rubric grading, feedback generation, quiz/spec generation). It's fully OpenAI-API-compatible, so swapping it in is close to a client/base-URL change rather than a rewrite, it's free with no credit card, and it's fast enough that the classroom-facing latency (a student or instructor waiting on a response) stays low.
-- **Google Gemini** (via Google AI Studio), specifically for the Curriculum Designer's document-ingestion step, where instructors may upload longer source material (a syllabus, an existing lab PDF). Gemini's free tier includes a very large context window, well beyond what Groq's free models support, which matters for that specific step.
-
-Both are genuinely free with published per-minute/per-day rate limits rather than a trial credit that expires — but rate limits on both shift over time, so this should be re-verified against each provider's current docs before locking in the final choice, not treated as permanent.
-
-### 4.5 Summary table
-
-| Layer | Choice | Why |
-|---|---|---|
-| Frontend hosting | Vercel | Already deployed, free tier is sufficient |
-| Backend agent hosting | Render (free web services) | Only mainstream option with a real, non-expiring free tier |
-| Database | MongoDB Atlas M0 | Matches existing document/partition-key code, no pause behavior |
-| AI provider | Groq (primary) + Gemini (long-context) | OpenAI-compatible swap-in, free, fast; Gemini covers large-document ingestion |
+| | |
+|---|---|
+| **LLM** | Switched to **Anthropic Claude** — `ClaudeCLIProvider` (shells to a local `claude` CLI) or `AnthropicAPIProvider` (`ANTHROPIC_API_KEY`). No Azure/OpenAI dependency anywhere in this subtree anymore. |
+| **Persistence** | Local JSON files behind a file lock (`persistence.py`). The interface modules say so directly in their own docstrings: *"POC: Persists to a local JSON file. In production, this would call the [agent]'s API."* |
+| **Code grading** | Not being phased out — the opposite happened. `agents/code_grader.py` now calls the LLM for partial-credit scoring per test, replacing plain exact-match (commit `011ef4a`, "Finished making sub-agent that grades assignments LLM-based"). |
+| **Deployment** | None — no Dockerfile, no compose file, no Procfile in this subtree. |
+| **Tests** | **45 passed / 1 failed / 4 errored.** The 4 errors are a real, fixable bug: `conftest.py` computes the repo root two `.parent`s up, landing inside `assessment_agent/` instead of `assessment-agent/`, so it can't find the demo fixtures it needs. The 1 failure is an unrelated pre-existing string-match issue in a syntax-error test. |
 
 ---
 
-## 5. What changes to get from current state to target state
+## Student-UI Agentic System — new since the last audit
 
-1. Send Oliver the one-line FYI on `participant-agent-AIEIC-main`'s delete/re-add, and build against the microservice stack only (ADFEL out of scope — see 2.3).
-2. Stand up MongoDB Atlas and point Curriculum Designer, Assessment Agent, Participant agent, and Integrity Guardian at it instead of Cosmos DB (mechanical client swap for the two already written against Cosmos).
-3. Swap Azure OpenAI / Anthropic SDK calls for Groq (and Gemini for the document-ingestion step) in Curriculum Designer and Assessment Agent.
-4. Deploy Curriculum Designer and Assessment Agent to Render.
-5. Wire the Instructor UI's three unwired tabs (Student Activity, Graded Submissions, Statistics) directly to Assessment Agent / the database — bypassing the Orchestrator entirely, per the confirmed design.
-6. Retire `rubric.md`; make `LabMaterial.rubric` the canonical entity and wire `criteria[].weight` into `report_evaluator.py`'s actual scoring (see 2.3).
-7. Send advisor a short heads-up that `AgentCollaboration` is deferred/re-scoped rather than built as originally designed (see 3.4).
+**`Student-UI_agentic_system-main`** — ● real SQLite data · ◐ named Azure infra, unconfirmed live · ○ no tests
 
-## 6. Proposed Roadmap
+This one codebase now covers what the prior audit described as three separate, undeployed, student-facing agents. It didn't exist as a single system before.
 
-High level, mapped against the 15-week timeline from the proposal — this just sequences the section 5 action items, not a detailed sprint plan.
+```mermaid
+flowchart LR
+    Q["Student question"] --> G1["Guardian.validate()<br/>classify: conceptual / procedural /<br/>direct-solution / answer-farming"]
+    G1 -->|"blocked"| Esc["3rd violation → escalate session"]
+    G1 -->|"allowed"| LC["Lab Companion<br/>generates guided response<br/>(FULL / MODERATE / MINIMAL / REJECTED)"]
+    LC --> G2["Guardian.verify()<br/>checks draft before it reaches student"]
+    G2 -->|"fails"| Fallback["SAFE_FALLBACK message"]
+    G2 -->|"passes"| Reply["Response returned to student"]
+    LC --> Log["Participant.log()"]
+    Log --> DB[("SQLite<br/>data/courses/{id}/participant.db<br/>+ guardian.db")]
+```
 
-|Weeks|Phase|Covers|
-|---|---|---|
-|1–2|Audit & decide|Done — this document. Decisions on ADFEL/rubric/AgentCollaboration are locked in, no longer open.|
-|3–5|Infrastructure stand-up|MongoDB Atlas provisioned and agents pointed at it; Groq/Gemini swapped in for Azure OpenAI/Anthropic; Curriculum Designer + Assessment Agent deployed to Render. Matches the proposal's "improve Vercel deployment + initial UI-to-agent integration" milestone.|
-|6|(unchanged)|Background research / related-work section — not affected by this plan.|
-|7–9|Core integration|Instructor UI wired directly to Curriculum Designer and Assessment Agent; Student Activity/Graded Submissions/Statistics tabs connected to the shared DB; rubric consolidation (`rubric.md` retired, `LabMaterial.rubric` wired into `report_evaluator.py`) done here since it blocks real grading data.|
-|10|Documentation pass|Update proposal's intro/design/implementation docs to reflect the actual architecture (no orchestrator, free-tier stack) instead of the original Cosmos/Azure assumptions.|
-|11|Usability testing|Unchanged from proposal — now testing against a fully wired instructor workflow instead of a partial one.|
-|12–13|Refinement + demo prep|Fix issues found in testing; cold-start mitigation for Render if it's a problem live; prepare Expo demo.|
-|14–15|Wrap-up|Ethics analysis, limitations/future-work section — this is where `AgentCollaboration`'s deferred re-scope (3.4) belongs in the report, plus any leftover ADFEL/Oliver thread.|
+| | |
+|---|---|
+| **LLM** | Dual-provider by design behind one `LLMClient` protocol — `AzureOpenAILLM` is the default, `ClaudeLLM` (`ANTHROPIC_API_KEY`) is a drop-in alternative. The only component in the repo that genuinely abstracts over both. |
+| **Persistence** | SQLite per course (`agentic_system/store/sqlite.py`). **Verified real data**: `participant.db` has 2 interaction rows; `guardian.db` has populated `sessions`, `questions`, and `verifications` tables. Lives on ephemeral container storage by design — the README documents this as an accepted limitation (SQLite is incompatible with Azure Files' SMB locking), not an oversight. |
+| **Auth** | Real Cal Poly CAS SSO flow (`server/auth.py`, JWT sessions), with a `CAS_MOCK=1` escape hatch for local dev. Not present anywhere else in the repo. |
+| **Deployment** | The most concrete infra in the repo: two named Azure Container Apps (`adfel-server`, `adfel-client`), a named Container Registry, environment, and resource group, plus Azure AI Foundry and AI Search for RAG. Whether it's actually running cannot be confirmed from the repo alone. |
+| **Tests** | Zero. `CLAUDE.md` states outright: "There is no test suite in this repo." |
 
-The main shift from the original proposal timeline is that weeks 3–5 now carry real infrastructure decisions (DB, hosting, AI provider) up front, so weeks 7–9 are pure integration work rather than integration-plus-discovery.
+---
+
+## Fragmented, not undeployed: Participant Agent & Integrity Guardian
+
+The prior audit treated these as single missing agents. They're no longer missing — they're duplicated or split, with no reconciliation.
+
+### Participant Agent — ◈ two incompatible implementations
+
+| Implementation | LLM | Persistence | Status |
+|---|---|---|---|
+| `Student-UI_agentic_system-main` | Azure OpenAI or Claude (pluggable) | SQLite — real rows | Embedded module, part of the live system above |
+| `participant-agent-AIEIC-main` (standalone) | Azure OpenAI (direct SDK) | Cosmos DB + Redis cache | Own FastAPI service, own Dockerfile; deleted and re-added (expanded) same day, 2026-08-13 |
+
+The standalone version's own README describes its storage as Azure Table Storage while its code uses Cosmos DB directly — internally inconsistent, independent of the duplication issue.
+
+### Integrity Guardian — ◈ split across three codebases, solving two different problems
+
+- **Deleted:** `integrity_agent-main` — the version the prior audit described (Cosmos DB, 643-line service, 7 design docs). Deleted 2026-09-14, same day as the Orchestrator, with no replacement standing in for its specific job.
+- **Student-UI's `guardian.py`:** a different concept — a real-time chat-turn integrity gate that classifies each student question and verifies the Companion's draft answers, escalating after 3 violations. SQLite-backed with real rows. Not cross-submission plagiarism detection.
+- **assessment-agent's `anomaly_detector.py`:** the closest surviving analog to "detect similarity/plagiarism in submissions" — style-anomaly detection plus an LLM risk assessment. But it still only writes to a local JSON stub, and its own docstring says: *"In production, this would call the Integrity Guardian agent's API"* — an API that no longer exists.
+
+---
+
+## Database landscape
+
+The prior audit's framing — "everything targets Cosmos DB, MongoDB Atlas is the proposed free fix" — no longer applies. There's no unifying decision at all, and the Mongo proposal appears to have gone nowhere: a repo-wide search for `mongo`, `pymongo`, or `atlas` returns zero hits.
+
+| Component | LLM target | Persistence | Deployment config | Tests |
+|---|---|---|---|---|
+| Instructor UI | — | — | `vercel.json` | None |
+| Curriculum Designer | Azure OpenAI | In-memory only | Dockerfile | None |
+| Assessment Agent | Anthropic Claude | Local JSON (POC) | None | 45✓ 1✗ 4 error |
+| Student-UI (Companion / Guardian / Participant) | Azure OpenAI or Claude | SQLite — real rows | Docker + named Azure infra | None |
+| Participant Agent (standalone) | Azure OpenAI | Cosmos DB + Redis | Dockerfile | 1 file, 33 lines |
+| Integrity Guardian v1 | — | Cosmos DB | — | deleted 2026-09-14 |
+
+---
+
+## Open items, in rough priority order
+
+1. **Fix `assessment-agent/assessment_agent/tests/conftest.py`.** One extra `.parent` needed on the repo-root path; currently breaks 4 tests on `main`.
+2. **Decide the Instructor UI's backend story.** Either rebuild an Orchestrator, or rewrite `src/api/agents.ts` to call Student-UI's server, the Assessment Agent, and the Curriculum Designer directly — right now it targets a service that was deliberately deleted.
+3. **Reconcile the two Participant Agent implementations.** They disagree on LLM SDK, database, and deployment shape; only one has real data behind it.
+4. **Pick a canonical Integrity Guardian.** The chat-turn gate (Student-UI) and submission-similarity detector (assessment-agent) are both live concerns but currently exist as unrelated code with no shared owner.
+5. **Make an actual database decision.** Four components target four different persistence strategies (in-memory, local JSON, SQLite, Cosmos) with no migration path between them; the MongoDB Atlas proposal from the prior audit was never acted on.
+
+---
+
+*Methodology: `main` audited directly at `b47d3ff`; SQLite claims verified with direct `sqlite3` queries against the committed `.db` files; assessment-agent test counts from a live `pytest` run. This replaces the earlier "Current Implementation State Audit" artifact, most of whose central claims (Orchestrator missing-not-deleted, everything on Cosmos DB, one undeployed student-facing codebase) no longer hold.*
