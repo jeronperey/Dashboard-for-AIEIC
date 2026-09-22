@@ -18,9 +18,10 @@ flowchart TB
         IUI["Instructor Dashboard<br/>React + Vite → Vercel"]
     end
 
-    subgraph Gone["Deleted 2026-09-14, never replaced"]
-        ORCH["Orchestrator API<br/>(orchestration-agent-AIEIC-main)"]
-        OLDIG["Integrity Guardian v1<br/>(integrity_agent-main, Cosmos DB)"]
+    subgraph Platform["AIEIC Platform Agents<br/>one Azure microservice per agent"]
+        ORCH["Orchestrator API<br/>(deleted 2026-09-14)"]
+        OLDIG["Integrity Guardian v1<br/>(deleted 2026-09-14)<br/>plagiarism/similarity · Cosmos DB"]
+        PASTANDALONE["Participant Agent<br/>Azure OpenAI · Cosmos DB + Redis"]
     end
 
     subgraph Isolated["Written, not deployed, not connected to anything"]
@@ -28,11 +29,7 @@ flowchart TB
         AA["Assessment Agent<br/>FastAPI<br/>Anthropic Claude · local JSON POC"]
     end
 
-    subgraph Dup["Standalone, duplicates part of the system below"]
-        PASTANDALONE["Participant Agent (standalone)<br/>Azure OpenAI · Cosmos DB + Redis"]
-    end
-
-    subgraph Real["Student-UI Agentic System — the one real backend"]
+    subgraph ADFEL["ADFEL — CSC 580 course pilot<br/>one package, agents as internal modules"]
         SUI["FastAPI server + Chainlit client<br/>CAS SSO auth"]
         LC["Lab Companion"]
         GD["Guardian<br/>(chat-turn integrity gate)"]
@@ -45,9 +42,10 @@ flowchart TB
     CD -.->|"targets (stubbed)"| COSMOS1[("Cosmos DB<br/>NotImplementedError")]
     AA -.->|"local file only"| JSON[("assessment_results.json")]
     PASTANDALONE -.->|"targets"| COSMOS2[("Cosmos DB + Redis")]
+    Platform -.-|"added same day, 2026-08-13 —<br/>zero shared code, no cross-references"| ADFEL
 ```
 
-> **The single most important change since the last audit:** a new consolidated backend, `Student-UI_agentic_system-main/`, now does most of what the old audit described as five separate undeployed agents — and it's the only piece of the repo with verified real data (SQLite rows), named Azure infrastructure, and a real SSO flow. It has zero tests and isn't confirmed live, but it is unambiguously the most finished thing in the repo. Everything else — the Instructor UI, Curriculum Designer, Assessment Agent, and the standalone Participant Agent — is still disconnected from it and from each other.
+> **The single most important change since the last audit:** a new consolidated backend, `Student-UI_agentic_system-main/` (product name "ADFEL"), now does most of what the old audit described as five separate undeployed agents — and it's the only piece of the repo with verified real data (SQLite rows), named Azure infrastructure, and a real SSO flow. It has zero tests and isn't confirmed live, but it is unambiguously the most finished thing in the repo. It is **not**, however, a replacement for the AIEIC Platform Agents family (Participant Agent, the deleted Orchestrator, the deleted Integrity Guardian v1) — those were added to the repo on the exact same day and share no code with it at all. See below for why that's confusing in practice.
 
 ---
 
@@ -123,24 +121,32 @@ flowchart LR
 
 ---
 
-## Fragmented, not undeployed: Participant Agent & Integrity Guardian
+## Two agent systems, built in parallel — not a hierarchy
 
-The prior audit treated these as single missing agents. They're no longer missing — they're duplicated or split, with no reconciliation.
+This is the confusing part, so it's worth being precise about the evidence rather than just labeling things "duplicate."
 
-### Participant Agent — ◈ two incompatible implementations
+> **What actually happened, as best it can be reconstructed from git history:** `Student-UI_agentic_system-main/` (product name "ADFEL"), `participant-agent-AIEIC-main/`, and the now-deleted `orchestration-agent-AIEIC-main/` and `integrity_agent-main/` were all added to this monorepo **on the same day**, 2026-08-13, each in its own separate "Add files via upload" commit — the pattern you'd expect from several pre-existing, independently-developed GitHub repos being bulk-imported at once, not one system being layered on top of another. A repo-wide search for any reference between the two sides (`agentic_system`, `adfel`, `Student-UI` mentioned anywhere outside Student-UI's own folder, or vice versa) turns up **nothing**. Student-UI's own README scopes itself to one specific class offering — *"a student-facing agentic tutoring system for Cal Poly's **CSC 580 lab course**"* — while the standalone agents carry "AIEIC" (the general platform name) in their own directory names. The most likely explanation: two people or teams, working at the same point in the project's timeline, each independently built their own version of "the student-facing agent trio" — one as a single course-specific pilot, one as general-platform microservices — without either knowing the other existed. That's an inference from the evidence below, not something stated anywhere in the repo.
 
-| Implementation | LLM | Persistence | Status |
-|---|---|---|---|
-| `Student-UI_agentic_system-main` | Azure OpenAI or Claude (pluggable) | SQLite — real rows | Embedded module, part of the live system above |
-| `participant-agent-AIEIC-main` (standalone) | Azure OpenAI (direct SDK) | Cosmos DB + Redis cache | Own FastAPI service, own Dockerfile; deleted and re-added (expanded) same day, 2026-08-13 |
+### The two families, compared — ◈ incompatible by design, not by accident
 
-The standalone version's own README describes its storage as Azure Table Storage while its code uses Cosmos DB directly — internally inconsistent, independent of the duplication issue.
+| Dimension | AIEIC Platform Agents (root-level, standalone) | ADFEL / Student-UI Agentic System (course pilot) |
+|---|---|---|
+| Product identity | "AIEIC" — general platform | "ADFEL" — CSC 580 course pilot, specifically |
+| Architecture | One FastAPI microservice per agent, meant to be called by a central Orchestrator | One monolithic package (`agentic_system/`); all three agents are internal modules in one process |
+| LLM access | Raw Azure OpenAI SDK calls, per service | Pluggable `LLMClient` protocol — Azure OpenAI by default, Claude as a drop-in swap |
+| Persistence | Azure Cosmos DB (+ Redis cache for Participant) | SQLite per course — **verified real rows present** |
+| Auth | None observed | Real Cal Poly CAS SSO, with a mock mode for local dev |
+| What "Guardian" / "Integrity" means | Cross-submission plagiarism & similarity detection, run after the fact on code/report submissions | Real-time, per-message integrity gate inside a live tutoring conversation |
+| Added to repo | 2026-04-27 (Participant, first version) and 2026-08-13 (Orchestrator, Integrity Guardian v1, expanded Participant) | 2026-08-13 — the same day as the others |
+| Tests | 1 file, 33 lines (Participant only); none for the deleted Integrity Guardian v1 | Zero, anywhere in the package |
+| Current status | Orchestrator + Integrity Guardian v1 deleted 2026-09-14; Participant Agent still present but unconnected to anything | Still present; the most deployment-ready thing in the repo |
 
-### Integrity Guardian — ◈ split across three codebases, solving two different problems
+### How to tell which one you're looking at
 
-- **Deleted:** `integrity_agent-main` — the version the prior audit described (Cosmos DB, 643-line service, 7 design docs). Deleted 2026-09-14, same day as the Orchestrator, with no replacement standing in for its specific job.
-- **Student-UI's `guardian.py`:** a different concept — a real-time chat-turn integrity gate that classifies each student question and verifies the Companion's draft answers, escalating after 3 violations. SQLite-backed with real rows. Not cross-submission plagiarism detection.
-- **assessment-agent's `anomaly_detector.py`:** the closest surviving analog to "detect similarity/plagiarism in submissions" — style-anomaly detection plus an LLM risk assessment. But it still only writes to a local JSON stub, and its own docstring says: *"In production, this would call the Integrity Guardian agent's API"* — an API that no longer exists.
+- **You're in the ADFEL / Student-UI system if you see:** the folder `agentic_system/`, a `server/` + `app.py` split, Chainlit, CAS/CAS_MOCK, or "ADFEL"/"CSC 580" mentioned in a README or comment.
+- **You're in the AIEIC Platform Agents family if you see:** a bare `from azure.cosmos import CosmosClient`, a standalone `main.py` FastAPI app with its own `Dockerfile` and no shared package, or "AIEIC" in the directory name or docstring.
+
+Why this matters beyond naming: the two "Participant Agent"s and the two "Guardian/Integrity" concepts are not interchangeable and were never meant to be swapped for each other. Anyone picking up "the Participant Agent" or "the Integrity Guardian" needs to first identify which family they're holding — one plagiarism-checks finished submissions after the fact, the other integrity-checks live chat turns in progress — because treating them as the same feature with two implementations (rather than two different features that happen to share a name) is exactly the confusion this section exists to head off. The old Integrity Guardian v1 no longer exists at all, so for plagiarism/similarity detection specifically, the closest surviving code is assessment-agent's `anomaly_detector.py` — which is a third, separate implementation again, and still just a local-JSON stub that assumes an Integrity Guardian API to call that isn't there anymore.
 
 ---
 
